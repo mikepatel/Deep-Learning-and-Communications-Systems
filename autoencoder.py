@@ -14,7 +14,8 @@ from tensorflow import keras
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, GaussianNoise, Input, Dropout
 from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.optimizers Adam
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 
 import numpy as np
 
@@ -22,3 +23,8 @@ import numpy as np
 # HYPERPARAMETERS
 
 # BUILD MODEL
+model = Sequential()
+
+# TRAIN MODEL
+
+# VISUALIZATION
