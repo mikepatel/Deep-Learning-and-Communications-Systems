@@ -36,10 +36,10 @@ k = int(np.log2(M))  # bits
 num_channels = 2
 R = k / num_channels  # comm rate R (bits per channel)
 Eb_No_dB = 7  # from paper
-Eb_No = np.power(10, Eb_No_dB /10)  # convert form dB -> W
+Eb_No = np.power(10, Eb_No_dB / 10)  # convert form dB -> W
 beta_variance = 1 / (2*R*Eb_No)
 
-BATCH_SIZE = 64
+BATCH_SIZE = 16
 NUM_EPOCHS = 10
 
 #size_train_data =
