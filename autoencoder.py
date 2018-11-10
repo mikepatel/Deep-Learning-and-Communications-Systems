@@ -28,6 +28,7 @@ import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 
+
 ################################################################################
 # HYPERPARAMETERS and CONSTANTS
 M = 4  # messages
@@ -42,8 +43,36 @@ beta_variance = 1 / (2*R*Eb_No)
 BATCH_SIZE = 16
 NUM_EPOCHS = 10
 
-#size_train_data =
-dim_embed_out = M  # want same shape (i.e. think one-hot encoding)
+# create training data
+size_train_data = 10000
+train_data = []
+train_label_idx = np.random.randint(M, size=size_train_data)  # list of indices that will eventually have value=1
+for idx in train_label_idx:
+    row = np.zeros(M)  # create row of 0s of length M
+    row[idx] = 1
+    train_data.append(row)
+
+train_data = np.array(train_data)
+
+# create validation set
+size_val_data = 2000
+val_data = []
+val_label_idx = np.random.randint(M, size=size_val_data)
+for idx in val_label_idx:
+    row = np.zeros(M)
+    row[idx] = 1
+    val_data.append(row)
+
+val_data = np.array(val_data)
+
+'''
+print("\nbefore array: ", train_data)
+train_data = np.array(train_data)
+print("\nShape of training data: ", train_data.shape)
+print(train_data)
+'''
+
+#dim_embed_out = M  # want same shape (i.e. think one-hot encoding)
 
 
 ################################################################################
@@ -123,5 +152,19 @@ autoencoder.compile(
 
 ################################################################################
 # TRAIN MODEL
+# callbacks
 
+history = autoencoder.fit(
+    x=train_data,
+    y=train_data,
+    epochs=NUM_EPOCHS,
+    batch_size=BATCH_SIZE,
+    validation_data=(val_data, val_data),
+    callbacks=[],
+    verbose=1
+)
+
+history_dict = history.history
+
+################################################################################
 # VISUALIZATION
