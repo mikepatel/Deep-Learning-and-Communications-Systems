@@ -165,6 +165,10 @@ history = autoencoder.fit(
 )
 
 history_dict = history.history
+train_accuracy = history_dict["acc"]
+train_loss = history_dict["loss"]
+valid_accuracy = history_dict["val_acc"]
+valid_loss = history_dict["val_loss"]
 
 ################################################################################
 # VISUALIZATION
