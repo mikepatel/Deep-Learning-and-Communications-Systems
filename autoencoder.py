@@ -186,20 +186,17 @@ for i in range(0, len(range_SNR_dB)):
 
     # construct signal = input + noise
     signal = predictions + noise
-    #print(signal[:5])
-    #print(test_data[:5])
-    #signal = predictions
-
     signal = np.round(signal)
+
     errors = np.not_equal(signal, test_data)  # boolean test
-    #print(errors[:5])
     ber[i] = np.mean(errors)
+
     print("SNR: {}, BER: {:.6f}".format(range_SNR_dB[i], ber[i]))
 
 # Plot
 plt.plot(range_SNR_dB, ber, "o")
 plt.yscale("log")
-plt.ylim(10**(-3), 1)
+plt.ylim(10**(-4), 1)
 plt.title("Autoencoder: ")
 plt.xlabel("SNR (dB)")
 plt.ylabel("BER")
