@@ -16,10 +16,10 @@
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense, GaussianNoise, Input, Dropout, \
+from tensorflow.keras.layers import Dense, GaussianNoise, Dropout, \
     BatchNormalization, Embedding, Flatten
 from tensorflow.keras.activations import relu, softmax, linear
-from tensorflow.keras.losses import sparse_categorical_crossentropy
+from tensorflow.keras.losses import categorical_crossentropy
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 
@@ -41,8 +41,9 @@ Eb_No = np.power(10, Eb_No_dB / 10)  # convert form dB -> W
 beta_variance = 1 / (2*R*Eb_No)
 
 BATCH_SIZE = 16
-NUM_EPOCHS = 10
+NUM_EPOCHS = 1
 
+################################################################################
 # create training data
 size_train_data = 10000
 train_data = []
@@ -53,6 +54,7 @@ for idx in train_label_idx:
     train_data.append(row)
 
 train_data = np.array(train_data)
+#print(train_data.shape)
 
 # create validation set
 size_val_data = 2000
@@ -65,35 +67,35 @@ for idx in val_label_idx:
 
 val_data = np.array(val_data)
 
-'''
-print("\nbefore array: ", train_data)
-train_data = np.array(train_data)
-print("\nShape of training data: ", train_data.shape)
-print(train_data)
-'''
+# create test set
+size_test_data = 30000
+test_data = []
+test_label_idx = np.random.randint(M, size=size_test_data)
+for idx in test_label_idx:
+    row = np.zeros(M)
+    row[idx] = 1
+    test_data.append(row)
 
-#dim_embed_out = M  # want same shape (i.e. think one-hot encoding)
+test_data = np.array(test_data)
 
 
 ################################################################################
 # BUILD MODEL
-# transmitter
-def build_tx():
+def build_model():
     m = Sequential()
 
-    #m.add(Input(shape=(M, )))
-
+    # ========= transmitter =========
     m.add(Embedding(
         input_dim=M,
         output_dim=M,
-        input_length=1
+        input_length=1,
+        input_shape=(M, )
     ))
 
     m.add(Flatten())
 
     m.add(Dense(
         units=M,
-        input_shape=(M,),
         activation=relu
     ))
 
@@ -104,27 +106,13 @@ def build_tx():
 
     m.add(BatchNormalization())
 
-    m.summary()
-    return m
-
-
-# channel
-def build_channel():
-    m = Sequential()
-
+    # ========= channel =========
     # Noise layer
     m.add(GaussianNoise(
         stddev=np.sqrt(beta_variance)
     ))
 
-    m.summary()
-    return m
-
-
-# receiver
-def build_rx():
-    m = Sequential()
-
+    # ========= receiver =========
     m.add(Dense(
         units=M,
         activation=relu
@@ -140,27 +128,33 @@ def build_rx():
 
 
 # autoencoder
-autoencoder = Sequential()
-autoencoder.add(build_tx())
-autoencoder.add(build_channel())
-autoencoder.add(build_rx())
+autoencoder = build_model()
+
 autoencoder.compile(
-    loss=sparse_categorical_crossentropy,
+    loss=categorical_crossentropy,
     optimizer=Adam(),
     metrics=["accuracy"]
 )
 
 ################################################################################
-# TRAIN MODEL
 # callbacks
+dir = os.path.join(os.getcwd(), datetime.now().strftime("%d-%m-%Y_%H-%M-%S"))
+if not os.path.exists(dir):
+    os.makedirs(dir)
 
+history_file = dir + "\checkpoints.h5"
+save_callback = ModelCheckpoint(filepath=history_file, verbose=1)
+tb_callback = TensorBoard(log_dir=dir)
+
+
+# TRAIN MODEL
 history = autoencoder.fit(
     x=train_data,
     y=train_data,
     epochs=NUM_EPOCHS,
     batch_size=BATCH_SIZE,
     validation_data=(val_data, val_data),
-    callbacks=[],
+    callbacks=[save_callback, tb_callback],
     verbose=1
 )
 
@@ -172,3 +166,48 @@ valid_loss = history_dict["val_loss"]
 
 ################################################################################
 # VISUALIZATION
+start = -10
+end = 15
+range_SNR_dB = list(np.linspace(start, end, 2*(end-start)+1))
+#print(range_SNR)
+ber = [None] * len(range_SNR_dB)
+
+for i in range(0, len(range_SNR_dB)):
+    # convert dB to W
+    snr = np.power(10, range_SNR_dB[i] / 10)
+
+    # noise parameters
+    mean_noise = 0
+    std_noise = np.sqrt(1 / (2*R*snr))
+    noise = std_noise * np.random.randn(size_test_data, M)  # randn => standard normal distribution
+
+    # evaluate model
+    predictions = autoencoder.predict(test_data)
+
+    # construct signal = input + noise
+    signal = predictions + noise
+    #print(signal[:5])
+    #print(test_data[:5])
+    #signal = predictions
+
+    signal = np.round(signal)
+    errors = np.not_equal(signal, test_data)  # boolean test
+    #print(errors[:5])
+    ber[i] = np.mean(errors)
+    print("SNR: {}, BER: {}".format(range_SNR_dB[i], ber[i]))
+
+# Plot
+plt.plot(range_SNR_dB, ber, "o")
+plt.title("Autoencoder: ")
+plt.xlabel("SNR (dB)")
+plt.ylabel("BER")
+plt.yscale("log")
+plt.grid()
+
+# save plot fig to file
+image_file = dir + "\plot_ber"
+plt.savefig(image_file)
+
+#plt.show()
+
+
