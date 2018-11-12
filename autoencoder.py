@@ -41,7 +41,7 @@ Eb_No = np.power(10, Eb_No_dB / 10)  # convert form dB -> W
 beta_variance = 1 / (2*R*Eb_No)
 
 BATCH_SIZE = 16
-NUM_EPOCHS = 1
+NUM_EPOCHS = 6
 
 ################################################################################
 # create training data
@@ -199,7 +199,7 @@ for i in range(0, len(range_SNR_dB)):
 # Plot
 plt.plot(range_SNR_dB, ber, "o")
 plt.yscale("log")
-plt.ylim(10**(-4), 1)
+plt.ylim(10**(-3), 1)
 plt.title("Autoencoder: ")
 plt.xlabel("SNR (dB)")
 plt.ylabel("BER")
