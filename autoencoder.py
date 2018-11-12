@@ -194,14 +194,15 @@ for i in range(0, len(range_SNR_dB)):
     errors = np.not_equal(signal, test_data)  # boolean test
     #print(errors[:5])
     ber[i] = np.mean(errors)
-    print("SNR: {}, BER: {}".format(range_SNR_dB[i], ber[i]))
+    print("SNR: {}, BER: {:.6f}".format(range_SNR_dB[i], ber[i]))
 
 # Plot
 plt.plot(range_SNR_dB, ber, "o")
+plt.yscale("log")
+plt.ylim(10**(-4), 1)
 plt.title("Autoencoder: ")
 plt.xlabel("SNR (dB)")
 plt.ylabel("BER")
-plt.yscale("log")
 plt.grid()
 
 # save plot fig to file
