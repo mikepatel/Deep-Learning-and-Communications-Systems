@@ -42,6 +42,7 @@ beta_variance = 1 / (2*R*Eb_No)
 
 BATCH_SIZE = 16
 NUM_EPOCHS = 6
+DROPOUT_RATE = 0.4
 
 ################################################################################
 # create training data
@@ -54,6 +55,7 @@ for idx in train_label_idx:
     train_data.append(row)
 
 train_data = np.array(train_data)
+print(train_data[:5])
 #print(train_data.shape)
 
 # create validation set
@@ -99,6 +101,8 @@ def build_model():
         activation=relu
     ))
 
+    m.add(BatchNormalization())
+
     m.add(Dense(
         units=num_channels,
         activation=linear  # ?????
@@ -117,6 +121,8 @@ def build_model():
         units=M,
         activation=relu
     ))
+
+    m.add(BatchNormalization())
 
     m.add(Dense(
         units=M,
