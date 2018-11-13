@@ -1,6 +1,7 @@
 # Michael Patel
 
-# Autoencoder repr. of communications system
+# Autoencoder representation of communications system
+# traditional model: tx-channel-rx
 #
 # Based on research paper: https://arxiv.org/pdf/1702.00832.pdf
 
@@ -31,12 +32,12 @@ import matplotlib.pyplot as plt
 
 ################################################################################
 # HYPERPARAMETERS and CONSTANTS
-M = 4  # messages
+M = 16  # messages
 k = int(np.log2(M))  # bits
 
 num_channels = 2
 R = k / num_channels  # comm rate R (bits per channel)
-Eb_No_dB = 7  # from paper
+Eb_No_dB = 7  # 7 dB from paper
 Eb_No = np.power(10, Eb_No_dB / 10)  # convert form dB -> W
 beta_variance = 1 / (2*R*Eb_No)
 
@@ -55,7 +56,7 @@ for idx in train_label_idx:
     train_data.append(row)
 
 train_data = np.array(train_data)
-print(train_data[:5])
+#print(train_data[:5])
 #print(train_data.shape)
 
 # create validation set
@@ -172,8 +173,8 @@ valid_loss = history_dict["val_loss"]
 
 ################################################################################
 # VISUALIZATION
-start = -10
-end = 15
+start = -15
+end = 25
 range_SNR_dB = list(np.linspace(start, end, 2*(end-start)+1))
 #print(range_SNR)
 ber = [None] * len(range_SNR_dB)
@@ -202,14 +203,15 @@ for i in range(0, len(range_SNR_dB)):
 # Plot
 plt.plot(range_SNR_dB, ber, "o")
 plt.yscale("log")
-plt.ylim(10**(-4), 1)
-plt.title("Autoencoder: ")
+plt.ylim(10**(-5), 1)
+title = "Autoencoder: Trained at " + str(Eb_No_dB) + " dB_" + str(k) + " bits"
+plt.title(title)
 plt.xlabel("SNR (dB)")
 plt.ylabel("BER")
 plt.grid()
 
 # save plot fig to file
-image_file = dir + "\plot_ber"
+image_file = dir + "\plot_ber_" + str(Eb_No_dB) + "dB_" + str(k) + " bits"
 plt.savefig(image_file)
 
 #plt.show()
