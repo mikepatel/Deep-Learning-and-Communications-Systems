@@ -16,7 +16,7 @@
 # IMPORTs
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import Sequential
+from tensorflow.keras import Sequential, Model
 from tensorflow.keras.layers import Dense, GaussianNoise, Dropout, \
     BatchNormalization, Embedding, Flatten
 from tensorflow.keras.activations import relu, softmax, linear
@@ -56,7 +56,7 @@ for idx in train_label_idx:
     train_data.append(row)
 
 train_data = np.array(train_data)
-#print(train_data[:5])
+print(train_data[:5])
 #print(train_data.shape)
 
 # create validation set
@@ -82,6 +82,65 @@ for idx in test_label_idx:
 test_data = np.array(test_data)
 
 
+################################################################################
+def build_tx():
+    m = Sequential()
+
+    m.add(Embedding(
+        input_dim=M,
+        output_dim=M,
+        input_length=1,
+        input_shape=(M,)
+    ))
+
+    m.add(Flatten())
+
+    m.add(Dense(
+        units=M,
+        activation=relu
+    ))
+
+    m.add(BatchNormalization())
+
+    m.add(Dense(
+        units=num_channels,
+        activation=linear  # ?????
+    ))
+
+    m.add(BatchNormalization())
+
+    return m
+
+
+def build_channel():
+    m = Sequential()
+
+    m.add(GaussianNoise(
+        stddev=np.sqrt(beta_variance)
+    ))
+
+    return m
+
+
+def build_rx():
+    m = Sequential()
+
+    m.add(Dense(
+        units=M,
+        activation=relu
+    ))
+
+    m.add(BatchNormalization())
+
+    m.add(Dense(
+        units=M,
+        activation=softmax
+    ))
+
+    return m
+
+
+'''
 ################################################################################
 # BUILD MODEL
 def build_model():
@@ -135,7 +194,15 @@ def build_model():
 
 
 # autoencoder
-autoencoder = build_model()
+#autoencoder = build_model()
+'''
+
+autoencoder = Sequential()
+autoencoder.add(build_tx())
+autoencoder.add(build_channel())
+autoencoder.add(build_rx())
+
+autoencoder.summary()
 
 autoencoder.compile(
     loss=categorical_crossentropy,
@@ -211,7 +278,7 @@ plt.ylabel("BER")
 plt.grid()
 
 # save plot fig to file
-image_file = dir + "\plot_ber_" + str(Eb_No_dB) + "dB_" + str(k) + " bits"
+image_file = dir + "\plot_ber_" + str(Eb_No_dB) + "dB_k=" + str(k) + "bits"
 plt.savefig(image_file)
 
 #plt.show()
