@@ -27,8 +27,6 @@ import os
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
-import scipy.stats as ss
-
 
 ################################################################################
 # HYPERPARAMETERS and CONSTANTS
@@ -40,125 +38,40 @@ R = k / num_channels  # comm rate R (bits per channel)
 Eb_No_dB = 7  # 7 dB from paper
 Eb_No = np.power(10, Eb_No_dB / 10)  # convert form dB -> W
 beta_variance = 1 / (2*R*Eb_No)
+#print("\nBeta variance: ", beta_variance)
 
-BATCH_SIZE = 16
-NUM_EPOCHS = 1
-DROPOUT_RATE = 0.4
+size_train_data = 50000
+size_val_data = 5000
+size_test_data = 50000
+
+BATCH_SIZE = 64
+NUM_EPOCHS = 10
+
 
 ################################################################################
-# create training data
-size_train_data = 10000
-train_data = []
-train_label_idx = np.random.randint(M, size=size_train_data)  # list of indices that will eventually have value=1
-for idx in train_label_idx:
-    row = np.zeros(M)  # create row of 0s of length M
-    row[idx] = 1
-    train_data.append(row)
+def create_data_set(size):
+    data = []
 
-train_data = np.array(train_data)
-print(train_data[:5])
-#print(train_data.shape)
+    for i in range(size):
+        row = np.zeros(M)
+        idx = np.random.randint(M)
+        row[idx] = 1
+        data.append(row)
 
-# create validation set
-size_val_data = 2000
-val_data = []
-val_label_idx = np.random.randint(M, size=size_val_data)
-for idx in val_label_idx:
-    row = np.zeros(M)
-    row[idx] = 1
-    val_data.append(row)
-
-val_data = np.array(val_data)
-
-# create test set
-size_test_data = 30000
-test_data = []
-test_label_idx = np.random.randint(M, size=size_test_data)
-for idx in test_label_idx:
-    row = np.zeros(M)
-    row[idx] = 1
-    test_data.append(row)
-
-test_data = np.array(test_data)
+    data = np.array(data)
+    return data
 
 
 ################################################################################
 # Rayleigh Fading
 def rayleigh(x):
-    f = x * ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), num_channels))
-    return f
+    f = x * np.random.rayleigh(beta_variance, num_channels)
+    x = x * (1-f)
+    return x
 
 
 def rayleigh_shape(input_shape):
     return input_shape
-
-
-################################################################################
-
-'''
-def build_tx():
-    m = Sequential()
-
-    m.add(Embedding(
-        input_dim=M,
-        output_dim=M,
-        input_length=1,
-        input_shape=(M,)
-    ))
-
-    m.add(Flatten())
-
-    m.add(Dense(
-        units=M,
-        activation=relu
-    ))
-
-    m.add(BatchNormalization())
-
-    m.add(Dense(
-        units=num_channels,
-        activation=linear  # ?????
-    ))
-
-    m.add(BatchNormalization())
-
-    return m
-
-
-def build_channel():
-    m = Sequential()
-
-    # Gaussian noise
-    m.add(GaussianNoise(
-        stddev=np.sqrt(beta_variance)
-    ))
-
-    # Rayleigh Distribution
-    m.add(Lambda(
-        function=rayleigh,
-        output_shape=rayleigh_shape
-    ))
-
-    return m
-
-
-def build_rx():
-    m = Sequential()
-
-    m.add(Dense(
-        units=M,
-        activation=relu
-    ))
-
-    m.add(BatchNormalization())
-
-    m.add(Dense(
-        units=M,
-        activation=softmax
-    ))
-
-    return m
-'''
 
 
 ################################################################################
@@ -185,6 +98,13 @@ def build_model():
     m.add(BatchNormalization())
 
     m.add(Dense(
+        units=M,
+        activation=relu
+    ))
+
+    m.add(BatchNormalization())
+
+    m.add(Dense(
         units=num_channels,
         activation=linear
     ))
@@ -194,20 +114,27 @@ def build_model():
     # ---------------------------------
     # ---------- CHANNEL ----------
     # ---------------------------------
-    # Gaussian noise
-    m.add(GaussianNoise(
-        stddev=np.sqrt(beta_variance)
-    ))
-
     # Rayleigh Distribution
     m.add(Lambda(
         function=rayleigh,
         output_shape=rayleigh_shape
     ))
 
+    # Gaussian noise
+    m.add(GaussianNoise(
+        stddev=np.sqrt(beta_variance)
+    ))
+
     # ---------------------------------
     # ---------- RECEIVER ----------
     # ---------------------------------
+    m.add(Dense(
+        units=M,
+        activation=relu
+    ))
+
+    m.add(BatchNormalization())
+
     m.add(Dense(
         units=M,
         activation=relu
@@ -244,6 +171,10 @@ history_file = dir + "\checkpoints.h5"
 save_callback = ModelCheckpoint(filepath=history_file, verbose=1)
 tb_callback = TensorBoard(log_dir=dir)
 
+# create training, validation, and test sets
+train_data = create_data_set(size_train_data)
+val_data = create_data_set(size_val_data)
+test_data = create_data_set(size_test_data)
 
 # TRAIN MODEL
 history = autoencoder.fit(
@@ -265,40 +196,41 @@ valid_loss = history_dict["val_loss"]
 ################################################################################
 # VISUALIZATION
 start = -15
-end = 25
+end = 15
 range_SNR_dB = list(np.linspace(start, end, 2*(end-start)+1))
-#print(range_SNR)
-ber = [0 for i in range(len(range_SNR_dB))]
+ber = np.zeros(len(range_SNR_dB))
 
 for i in range(0, len(range_SNR_dB)):
     # convert dB to W
     snr = np.power(10, range_SNR_dB[i] / 10)
 
-    # noise parameters
-    #mean_noise = 0
-    std_noise = np.sqrt(1 / (2*R*snr))
-    noise = std_noise * np.random.randn(size_test_data, M)  # randn => standard normal distribution
-
     # evaluate model
     predictions = autoencoder.predict(test_data)
 
-    # construct signal = input + noise + fading
-    signal = predictions + noise
+    # construct signal = (input * fading) + noise
+    signal = predictions
+
+    # fading
+    fading = np.random.rayleigh(beta_variance, M)
+    signal = signal * (1-fading)
+
+    # noise parameters
+    mean_noise = 0
+    std_noise = np.sqrt(1 / (2 * R * snr))
+    noise = mean_noise + std_noise * np.random.randn(size_test_data, M)  # randn => standard normal distribution
+    signal = signal + noise
+
     signal = np.round(signal)
-    print(signal.shape)
-    #fading = ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), (signal.shape)))
-    fading = np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), M)
-    signal = signal * fading
 
     errors = np.not_equal(signal, test_data)  # boolean test
     ber[i] = np.mean(errors)
 
-    print("SNR: {}, BER: {:.6f}".format(range_SNR_dB[i], ber[i]))
+    print("SNR: {}, BER: {:.12f}".format(range_SNR_dB[i], ber[i]))
 
-# Plot
+# Plot BER curve
 plt.plot(range_SNR_dB, ber, "o")
 plt.yscale("log")
-plt.ylim(10**(-5), 1)
+plt.ylim(10**(-6), 1)
 title = "Autoencoder: Trained at " + str(Eb_No_dB) + " dB_" + str(k) + " bits"
 plt.title(title)
 plt.xlabel("SNR (dB)")
@@ -310,5 +242,3 @@ image_file = dir + "\plot_ber_" + str(Eb_No_dB) + "dB_k=" + str(k) + "bits"
 plt.savefig(image_file)
 
 #plt.show()
-
-
