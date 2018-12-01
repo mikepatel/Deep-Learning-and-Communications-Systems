@@ -40,11 +40,11 @@ Eb_No = np.power(10, Eb_No_dB / 10)  # convert form dB -> W
 beta_variance = 1 / (2*R*Eb_No)
 #print("\nBeta variance: ", beta_variance)
 
-size_train_data = 50000
+size_train_data = 40000
 size_val_data = 5000
-size_test_data = 50000
+size_test_data = 10000
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 NUM_EPOCHS = 10
 
 
@@ -225,7 +225,7 @@ for i in range(0, len(range_SNR_dB)):
     errors = np.not_equal(signal, test_data)  # boolean test
     ber[i] = np.mean(errors)
 
-    print("SNR: {}, BER: {:.12f}".format(range_SNR_dB[i], ber[i]))
+    print("SNR: {}, BER: {:.8f}".format(range_SNR_dB[i], ber[i]))
 
 # Plot BER curve
 plt.plot(range_SNR_dB, ber, "o")
