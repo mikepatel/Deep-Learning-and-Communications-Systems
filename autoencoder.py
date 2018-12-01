@@ -11,14 +11,13 @@
 #   - input s -> one-hot encoding -> M-dimensional vector
 #   - instead of one-hot encoding, use message indices -> embedding -> vectors
 #   - Embedding layer can only be used as 1st layer in model
+#   - Rayleigh Fading via Rayleigh Distribution
 
 ################################################################################
 # IMPORTs
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import Sequential, Model
+from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, GaussianNoise, Dropout, \
-    BatchNormalization, Embedding, Flatten
+    BatchNormalization, Embedding, Flatten, Lambda
 from tensorflow.keras.activations import relu, softmax, linear
 from tensorflow.keras.losses import categorical_crossentropy
 from tensorflow.keras.optimizers import Adam
@@ -28,6 +27,7 @@ import os
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
+import scipy.stats as ss
 
 
 ################################################################################
@@ -83,6 +83,19 @@ test_data = np.array(test_data)
 
 
 ################################################################################
+# Rayleigh Fading
+def rayleigh(x):
+    a = -np.power(x, 2) / (2*beta_variance)
+    f = x * ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), num_channels))
+    return f
+
+
+def rayleigh_shape(input_shape):
+    return input_shape
+
+################################################################################
+
+
 def build_tx():
     m = Sequential()
 
@@ -115,8 +128,15 @@ def build_tx():
 def build_channel():
     m = Sequential()
 
+    # Gaussian noise
     m.add(GaussianNoise(
         stddev=np.sqrt(beta_variance)
+    ))
+
+    # Rayleigh Distribution
+    m.add(Lambda(
+        function=rayleigh,
+        output_shape=rayleigh_shape
     ))
 
     return m
@@ -140,18 +160,16 @@ def build_rx():
     return m
 
 
-'''
 ################################################################################
-# BUILD MODEL
 def build_model():
     m = Sequential()
 
-    # ========= transmitter =========
+    ################ TX ###############
     m.add(Embedding(
         input_dim=M,
         output_dim=M,
         input_length=1,
-        input_shape=(M, )
+        input_shape=(M,)
     ))
 
     m.add(Flatten())
@@ -165,18 +183,24 @@ def build_model():
 
     m.add(Dense(
         units=num_channels,
-        activation=linear  # ?????
+        activation=linear
     ))
 
     m.add(BatchNormalization())
 
-    # ========= channel =========
-    # Noise layer
+    ################ CHANNEL ###############
+    # Gaussian noise
     m.add(GaussianNoise(
         stddev=np.sqrt(beta_variance)
     ))
 
-    # ========= receiver =========
+    # Rayleigh Distribution
+    m.add(Lambda(
+        function=rayleigh,
+        output_shape=rayleigh_shape
+    ))
+
+    ################ RX ###############
     m.add(Dense(
         units=M,
         activation=relu
@@ -189,19 +213,10 @@ def build_model():
         activation=softmax
     ))
 
-    m.summary()
-    return m
 
+################################################################################
 
-# autoencoder
-#autoencoder = build_model()
-'''
-
-autoencoder = Sequential()
-autoencoder.add(build_tx())
-autoencoder.add(build_channel())
-autoencoder.add(build_rx())
-
+autoencoder = build_model()
 autoencoder.summary()
 
 autoencoder.compile(
@@ -258,9 +273,11 @@ for i in range(0, len(range_SNR_dB)):
     # evaluate model
     predictions = autoencoder.predict(test_data)
 
-    # construct signal = input + noise
+    # construct signal = input + noise + fading
     signal = predictions + noise
     signal = np.round(signal)
+    fading = ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), 100))
+    signal = signal * fading
 
     errors = np.not_equal(signal, test_data)  # boolean test
     ber[i] = np.mean(errors)
