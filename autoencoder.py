@@ -12,6 +12,8 @@
 #   - instead of one-hot encoding, use message indices -> embedding -> vectors
 #   - Embedding layer can only be used as 1st layer in model
 #   - Rayleigh Fading via Rayleigh Distribution
+#   - batch_size > 32 leads to poor accuracy results (BER curve)
+#   - Added args parser for rayleigh fading
 
 ################################################################################
 # IMPORTs
@@ -28,9 +30,23 @@ import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
+import argparse
+
+
+################################################################################
+def get_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--rayleigh", action="store_true", help="Rayleigh Fading")
+
+    return parser.parse_args()
+
 
 ################################################################################
 # HYPERPARAMETERS and CONSTANTS
+FLAGS = get_args()  # depending on args, change model structure
+print(FLAGS.rayleigh)
+
 M = 16  # messages
 k = int(np.log2(M))  # bits
 
@@ -45,8 +61,8 @@ size_train_data = 40000
 size_val_data = 5000
 size_test_data = 10000
 
-BATCH_SIZE = 64
-NUM_EPOCHS = 10
+BATCH_SIZE = 32
+NUM_EPOCHS = 12
 
 
 ################################################################################
@@ -116,10 +132,11 @@ def build_model():
     # ---------- CHANNEL ----------
     # ---------------------------------
     # Rayleigh Distribution
-    m.add(Lambda(
-        function=rayleigh,
-        output_shape=rayleigh_shape
-    ))
+    if FLAGS.rayleigh:
+        m.add(Lambda(
+            function=rayleigh,
+            output_shape=rayleigh_shape
+        ))
 
     # Gaussian noise
     m.add(GaussianNoise(
@@ -212,8 +229,9 @@ for i in range(0, len(range_SNR_dB)):
     signal = predictions
 
     # fading
-    fading = np.random.rayleigh(beta_variance, M)
-    signal = signal * (1-fading)
+    if FLAGS.rayleigh:
+        fading = np.random.rayleigh(beta_variance, M)
+        signal = signal * (1-fading)
 
     # noise parameters
     mean_noise = 0
@@ -245,6 +263,7 @@ plt.savefig(image_file)
 #plt.show()
 
 # save BER results to csv
-df = pd.DataFrame(ber)
+df = pd.DataFrame([list(range_SNR_dB), list(ber)])
+df = df.transpose()
 csv_file = dir + "\\ber.csv"
 df.to_csv(csv_file, header=None, index=None)
