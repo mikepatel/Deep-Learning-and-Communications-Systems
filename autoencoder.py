@@ -27,6 +27,7 @@ import os
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
+import pandas as pd
 
 ################################################################################
 # HYPERPARAMETERS and CONSTANTS
@@ -44,7 +45,7 @@ size_train_data = 40000
 size_val_data = 5000
 size_test_data = 10000
 
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 NUM_EPOCHS = 10
 
 
@@ -242,3 +243,8 @@ image_file = dir + "\plot_ber_" + str(Eb_No_dB) + "dB_k=" + str(k) + "bits"
 plt.savefig(image_file)
 
 #plt.show()
+
+# save BER results to csv
+df = pd.DataFrame(ber)
+csv_file = dir + "\\ber.csv"
+df.to_csv(csv_file, header=None, index=None)
