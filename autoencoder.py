@@ -42,7 +42,7 @@ Eb_No = np.power(10, Eb_No_dB / 10)  # convert form dB -> W
 beta_variance = 1 / (2*R*Eb_No)
 
 BATCH_SIZE = 16
-NUM_EPOCHS = 6
+NUM_EPOCHS = 1
 DROPOUT_RATE = 0.4
 
 ################################################################################
@@ -85,7 +85,6 @@ test_data = np.array(test_data)
 ################################################################################
 # Rayleigh Fading
 def rayleigh(x):
-    a = -np.power(x, 2) / (2*beta_variance)
     f = x * ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), num_channels))
     return f
 
@@ -270,7 +269,6 @@ end = 25
 range_SNR_dB = list(np.linspace(start, end, 2*(end-start)+1))
 #print(range_SNR)
 ber = [0 for i in range(len(range_SNR_dB))]
-print(ber)
 
 for i in range(0, len(range_SNR_dB)):
     # convert dB to W
@@ -287,7 +285,10 @@ for i in range(0, len(range_SNR_dB)):
     # construct signal = input + noise + fading
     signal = predictions + noise
     signal = np.round(signal)
-    signal = (signal / beta_variance) * np.exp(-(np.power(signal, 2)) / (2*beta_variance))
+    print(signal.shape)
+    #fading = ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), (signal.shape)))
+    fading = np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), M)
+    signal = signal * fading
 
     errors = np.not_equal(signal, test_data)  # boolean test
     ber[i] = np.mean(errors)
