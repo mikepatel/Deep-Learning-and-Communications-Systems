@@ -16,7 +16,7 @@
 ################################################################################
 # IMPORTs
 from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense, GaussianNoise, Dropout, \
+from tensorflow.keras.layers import Dense, GaussianNoise, \
     BatchNormalization, Embedding, Flatten, Lambda
 from tensorflow.keras.activations import relu, softmax, linear
 from tensorflow.keras.losses import categorical_crossentropy
@@ -93,9 +93,10 @@ def rayleigh(x):
 def rayleigh_shape(input_shape):
     return input_shape
 
+
 ################################################################################
 
-
+'''
 def build_tx():
     m = Sequential()
 
@@ -158,13 +159,16 @@ def build_rx():
     ))
 
     return m
+'''
 
 
 ################################################################################
 def build_model():
     m = Sequential()
 
-    ################ TX ###############
+    # ---------------------------------
+    # ---------- TRANSMITTER ----------
+    # ---------------------------------
     m.add(Embedding(
         input_dim=M,
         output_dim=M,
@@ -188,7 +192,9 @@ def build_model():
 
     m.add(BatchNormalization())
 
-    ################ CHANNEL ###############
+    # ---------------------------------
+    # ---------- CHANNEL ----------
+    # ---------------------------------
     # Gaussian noise
     m.add(GaussianNoise(
         stddev=np.sqrt(beta_variance)
@@ -200,7 +206,9 @@ def build_model():
         output_shape=rayleigh_shape
     ))
 
-    ################ RX ###############
+    # ---------------------------------
+    # ---------- RECEIVER ----------
+    # ---------------------------------
     m.add(Dense(
         units=M,
         activation=relu
@@ -213,9 +221,11 @@ def build_model():
         activation=softmax
     ))
 
+    return m
+
 
 ################################################################################
-
+# BUILD MODEL
 autoencoder = build_model()
 autoencoder.summary()
 
@@ -259,14 +269,15 @@ start = -15
 end = 25
 range_SNR_dB = list(np.linspace(start, end, 2*(end-start)+1))
 #print(range_SNR)
-ber = [None] * len(range_SNR_dB)
+ber = [0 for i in range(len(range_SNR_dB))]
+print(ber)
 
 for i in range(0, len(range_SNR_dB)):
     # convert dB to W
     snr = np.power(10, range_SNR_dB[i] / 10)
 
     # noise parameters
-    mean_noise = 0
+    #mean_noise = 0
     std_noise = np.sqrt(1 / (2*R*snr))
     noise = std_noise * np.random.randn(size_test_data, M)  # randn => standard normal distribution
 
@@ -276,8 +287,7 @@ for i in range(0, len(range_SNR_dB)):
     # construct signal = input + noise + fading
     signal = predictions + noise
     signal = np.round(signal)
-    fading = ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), 100))
-    signal = signal * fading
+    signal = (signal / beta_variance) * np.exp(-(np.power(signal, 2)) / (2*beta_variance))
 
     errors = np.not_equal(signal, test_data)  # boolean test
     ber[i] = np.mean(errors)
