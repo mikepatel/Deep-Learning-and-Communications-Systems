@@ -31,9 +31,16 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
+import shutil
+import scipy.stats as ss
 
 
 ################################################################################
+def delete_dir(d):
+    if os.path.exists(d):
+        shutil.rmtree(d)
+
+
 def get_args():
     parser = argparse.ArgumentParser()
 
@@ -41,6 +48,11 @@ def get_args():
 
     return parser.parse_args()
 
+
+################################################################################
+# Setup
+idea_dir = os.path.join(os.getcwd(), ".idea")
+delete_dir(idea_dir)
 
 ################################################################################
 # HYPERPARAMETERS and CONSTANTS
@@ -55,13 +67,13 @@ R = k / num_channels  # comm rate R (bits per channel)
 Eb_No_dB = 7  # 7 dB from paper
 Eb_No = np.power(10, Eb_No_dB / 10)  # convert form dB -> W
 beta_variance = 1 / (2*R*Eb_No)
-#print("\nBeta variance: ", beta_variance)
+print("\nBeta variance: ", beta_variance)
 
 size_train_data = 40000
 size_val_data = 5000
 size_test_data = 10000
 
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 NUM_EPOCHS = 12
 
 
@@ -82,7 +94,8 @@ def create_data_set(size):
 ################################################################################
 # Rayleigh Fading
 def rayleigh(x):
-    f = x * np.random.rayleigh(beta_variance, num_channels)
+    s = np.sqrt(beta_variance)
+    f = ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), num_channels))
     x = x * (1-f)
     return x
 
@@ -214,7 +227,7 @@ valid_loss = history_dict["val_loss"]
 ################################################################################
 # VISUALIZATION
 start = -15
-end = 15
+end = 20
 range_SNR_dB = list(np.linspace(start, end, 2*(end-start)+1))
 ber = np.zeros(len(range_SNR_dB))
 
@@ -230,8 +243,10 @@ for i in range(0, len(range_SNR_dB)):
 
     # fading
     if FLAGS.rayleigh:
-        fading = np.random.rayleigh(beta_variance, M)
-        signal = signal * (1-fading)
+        scale = np.sqrt(1 / (2 * R * snr))
+        print("\nScale: ", scale)
+        fading = ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), M))
+        signal = np.multiply(signal, (1-fading))
 
     # noise parameters
     mean_noise = 0
@@ -249,15 +264,17 @@ for i in range(0, len(range_SNR_dB)):
 # Plot BER curve
 plt.plot(range_SNR_dB, ber, "o")
 plt.yscale("log")
-plt.ylim(10**(-6), 1)
-title = "Autoencoder: Trained at " + str(Eb_No_dB) + " dB_" + str(k) + " bits"
+plt.ylim(10**(-7), 1)
+title = "Autoencoder: Trained at " + str(Eb_No_dB) + " dB_" + str(k) + " bits" + \
+        " with Rayleigh fading= " + str(FLAGS.rayleigh)
 plt.title(title)
 plt.xlabel("SNR (dB)")
 plt.ylabel("BER")
 plt.grid()
 
 # save plot fig to file
-image_file = dir + "\plot_ber_" + str(Eb_No_dB) + "dB_k=" + str(k) + "bits"
+image_file = dir + "\plot_ber_" + str(Eb_No_dB) + "dB_k=" + str(k) + "bits" + \
+             " with Rayleigh fading= " + str(FLAGS.rayleigh)
 plt.savefig(image_file)
 
 #plt.show()
