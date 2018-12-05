@@ -57,17 +57,19 @@ delete_dir(idea_dir)
 ################################################################################
 # HYPERPARAMETERS and CONSTANTS
 FLAGS = get_args()  # depending on args, change model structure
-print(FLAGS.rayleigh)
+print("\nRayleigh Flag: ", FLAGS.rayleigh)
 
-M = 16  # messages
+M = 4  # messages
 k = int(np.log2(M))  # bits
+print("\nk: ", k)
 
 num_channels = 2
 R = k / num_channels  # comm rate R (bits per channel)
-Eb_No_dB = 7  # 7 dB from paper
+Eb_No_dB = 0  # 7 dB from paper
+print("\nSNR training: ", Eb_No_dB)
 Eb_No = np.power(10, Eb_No_dB / 10)  # convert form dB -> W
 beta_variance = 1 / (2*R*Eb_No)
-print("\nBeta variance: ", beta_variance)
+#print("\nBeta variance: ", beta_variance)
 
 size_train_data = 40000
 size_val_data = 5000
@@ -93,10 +95,16 @@ def create_data_set(size):
 
 ################################################################################
 # Rayleigh Fading
+def get_fading(shape):
+    f = ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), shape))
+    return f
+
+
 def rayleigh(x):
-    s = np.sqrt(beta_variance)
-    f = ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), num_channels))
-    x = x * (1-f)
+    #f = get_fading(num_channels)
+    f = ss.rayleigh().pdf(ss.rayleigh.rvs(size=2))  # hardcoded in order to save checkpoints
+    f = f * 0.631  # to correct for skewness
+    x = x - f
     return x
 
 
@@ -227,7 +235,7 @@ valid_loss = history_dict["val_loss"]
 ################################################################################
 # VISUALIZATION
 start = -15
-end = 20
+end = 15
 range_SNR_dB = list(np.linspace(start, end, 2*(end-start)+1))
 ber = np.zeros(len(range_SNR_dB))
 
@@ -238,20 +246,21 @@ for i in range(0, len(range_SNR_dB)):
     # evaluate model
     predictions = autoencoder.predict(test_data)
 
-    # construct signal = (input * fading) + noise
+    # construct signal
     signal = predictions
+    #print(signal)
 
     # fading
     if FLAGS.rayleigh:
-        scale = np.sqrt(1 / (2 * R * snr))
-        print("\nScale: ", scale)
-        fading = ss.rayleigh().pdf(np.linspace(ss.rayleigh.ppf(0.01), ss.rayleigh.ppf(0.99), M))
-        signal = np.multiply(signal, (1-fading))
+        fading = get_fading(M)
+        fading = fading * 0.631  # to correct for skewness
+        signal = signal - fading
 
     # noise parameters
     mean_noise = 0
     std_noise = np.sqrt(1 / (2 * R * snr))
     noise = mean_noise + std_noise * np.random.randn(size_test_data, M)  # randn => standard normal distribution
+
     signal = signal + noise
 
     signal = np.round(signal)
@@ -261,6 +270,7 @@ for i in range(0, len(range_SNR_dB)):
 
     print("SNR: {}, BER: {:.8f}".format(range_SNR_dB[i], ber[i]))
 
+################################################################################
 # Plot BER curve
 plt.plot(range_SNR_dB, ber, "o")
 plt.yscale("log")
